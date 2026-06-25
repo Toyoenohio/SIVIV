@@ -1,0 +1,4 @@
+# Cloudflare Pages headers — cache static assets aggressively
+# HTML pages are NOT cached so users always get fresh data
+/js/*
+  Cache-Control: public, max-age=31536000, immutable

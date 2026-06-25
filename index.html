@@ -84,16 +84,17 @@
 
       <div class="flex items-center justify-between mb-4 px-1">
         <p class="text-sm text-gray-500">
-          <span v-if="loading" class="inline-flex items-center gap-2">
-            <span class="animate-pulse">⏳</span> Buscando...
+          <span v-if="loading && !allPatients.length" class="inline-flex items-center gap-2">
+            <span class="animate-pulse">⏳</span> Cargando...
           </span>
           <span v-else>
             <strong class="text-gray-900">{{ filteredPatients.length }}</strong> 
             {{ filteredPatients.length === 1 ? 'persona encontrada' : 'personas encontradas' }}
             <span v-if="allPatients.length && (searchQuery || filterCenter)">de {{ allPatients.length }} registradas</span>
+            <span v-if="lastFetched" class="text-gray-400 text-xs ml-2">· {{ freshness }}</span>
           </span>
         </p>
-        <button @click="refreshData" :disabled="loading"
+        <button @click="forceRefresh" :disabled="loading"
                 class="text-xs text-medical-600 hover:text-medical-700 font-medium disabled:opacity-50">🔄 Actualizar</button>
       </div>
 
@@ -162,6 +163,8 @@
           allPatients: [],
           loading: true,
           connError: null,
+          lastFetched: null,
+          cacheHit: false,
           
           supabase: null,
         }
@@ -187,13 +190,53 @@
         centers() {
           const c = new Set(this.allPatients.map(p => p.centro).filter(Boolean));
           return [...c].sort((a, b) => a.localeCompare(b, 'es'));
+        },
+        freshness() {
+          if (!this.lastFetched) return '';
+          const sec = Math.floor((Date.now() - this.lastFetched) / 1000);
+          if (sec < 5) return 'ahora';
+          if (sec < 60) return `hace ${sec}s`;
+          const min = Math.floor(sec / 60);
+          if (min < 60) return `hace ${min} min`;
+          return `hace ${Math.floor(min / 60)}h`;
         }
       },
       
       methods: {
+        // ─── Cache ──────────────────────────────────
+        CACHE_KEY: 'siviv_data',
+        CACHE_TTL: 60_000, // 60 seconds
+        
+        loadCache() {
+          try {
+            const raw = localStorage.getItem(this.CACHE_KEY);
+            if (!raw) return null;
+            const cache = JSON.parse(raw);
+            if (Date.now() - cache.ts > this.CACHE_TTL) return null;
+            return cache;
+          } catch { return null; }
+        },
+        
+        saveCache(data) {
+          try {
+            localStorage.setItem(this.CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
+          } catch { /* localStorage full — ignore */ }
+        },
+        
         initSupabase() {
           try {
             this.supabase = supabase.createClient(this.supabaseUrl, this.supabaseKey);
+            
+            // Serve cache immediately
+            const cache = this.loadCache();
+            if (cache) {
+              this.allPatients = cache.data;
+              this.lastFetched = cache.ts;
+              this.cacheHit = true;
+              this.loading = false;
+            }
+            
+            // Then refresh from DB
             this.refreshData();
           } catch(e) {
             this.connError = true;
@@ -203,7 +246,7 @@
         
         async refreshData() {
           if (!this.supabase) return;
-          this.loading = true;
+          if (!this.allPatients.length) this.loading = true;
           this.connError = null;
           try {
             const { data, error } = await this.supabase
@@ -213,11 +256,20 @@
               .limit(500);
             if (error) throw error;
             this.allPatients = data || [];
+            this.lastFetched = Date.now();
+            this.cacheHit = false;
+            this.saveCache(this.allPatients);
           } catch(e) {
             this.connError = true;
           } finally {
             this.loading = false;
           }
+        },
+        
+        forceRefresh() {
+          if (this.loading) return;
+          this.loading = true;
+          this.refreshData();
         },
         
         onSearchInput(e) {
@@ -242,7 +294,7 @@
       
       mounted() {
         this.initSupabase();
-        setInterval(() => { if (!this.loading) this.refreshData(); }, 60000);
+        setInterval(() => { if (!this.loading) this.refreshData(); }, 120_000);
       }
     }).mount('#app');
   </script>
