@@ -3,33 +3,45 @@
 Registro y búsqueda de personas afectadas por el terremoto en Venezuela.  
 App ligera (Vue 3 + Supabase + Tailwind CDN), sin build step, sin dependencias.
 
-## Configuración (3 pasos)
+## Estructura
+
+| Archivo | Acceso | Descripción |
+|---|---|---|
+| `index.html` | 🌐 Público | Buscador y registro individual |
+| `admin.html` | 🔒 Admin | Carga masiva CSV + panel de control |
+| `setup.sql` | — | Creación de tabla en Supabase |
+| `config.example.js` | 📋 Template | Credenciales de ejemplo |
+| `config.js` | 🚫 Gitignored | Credenciales reales |
+
+## Configuración
 
 ### 1. Base de datos
 Ejecuta `setup.sql` en tu Supabase SQL Editor.
 
 ### 2. Credenciales
+Copia `config.example.js` → `config.js` y completa:
 
-**Opción A — Cloudflare Pages (recomendado):**
-1. En Cloudflare Pages → Settings → Environment Variables, agrega:
-   - `SUPABASE_URL` = `https://xxxxx.supabase.co`
-   - `SUPABASE_KEY` = tu anon key
-2. Build command: `bash build.sh`
-3. Output directory: `/` (root)
-
-**Opción B — Manual:**
-1. Copia `config.example.js` → `config.js`
-2. Reemplaza los placeholders con tus credenciales reales
-3. `config.js` está en `.gitignore` — **nunca se sube al repo**
+```js
+window.SIVIV_CONFIG = {
+  supabaseUrl: 'https://xxxxx.supabase.co',
+  supabaseKey: 'TU_ANON_KEY',
+  adminKey: 'tu-clave-secreta',
+};
+```
 
 ### 3. Deploy
 
-- **Cloudflare Pages**: Conecta el repo, configura build como arriba.
-- **GitHub Pages**: Settings → Pages → Source: main. Asegúrate de tener `config.js` creado localmente.
-- **Vercel**: Importa el repo. Agrega env vars y usa `bash build.sh` como build command.
+**Cloudflare Pages (recomendado):**
+- Build command: `bash build.sh`
+- Output directory: `/`
+- Env vars: `SUPABASE_URL`, `SUPABASE_KEY`, `ADMIN_KEY`
 
-## Uso
+## CSV formato
 
-- 🔍 **Buscar**: Escribe nombre/apellido/cédula — filtra instantáneamente
-- ➕ **Registrar**: Formulario para añadir personas (acceso abierto — contexto de emergencia)
-- 🔄 Auto-refresh cada 60 segundos. Botón manual disponible.
+```csv
+nombre,apellido,edad,cedula,centro
+María,González,34,V-12345678,Hospital Central
+Carlos,Rodríguez,45,,Clínica La Floresta
+```
+
+La app autodetecta las columnas por nombre (soporta variantes como "nombres", "age", "cédula", "hospital", etc). Si los nombres no coinciden, puedes mapearlos manualmente en el panel.

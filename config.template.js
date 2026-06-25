@@ -3,4 +3,5 @@
 window.SIVIV_CONFIG = {
   supabaseUrl: '{{SUPABASE_URL}}',
   supabaseKey: '{{SUPABASE_KEY}}',
+  adminKey: '{{ADMIN_KEY}}',
 };
