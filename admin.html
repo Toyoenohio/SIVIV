@@ -239,10 +239,14 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="grid grid-cols-4 gap-3 mb-4">
           <div class="bg-green-50 rounded-lg p-3 text-center">
             <p class="text-2xl font-bold text-green-600">{{ importStats.success }}</p>
             <p class="text-xs text-green-700">✅ Exitosos</p>
+          </div>
+          <div class="bg-yellow-50 rounded-lg p-3 text-center">
+            <p class="text-2xl font-bold text-yellow-600">{{ importStats.duplicates }}</p>
+            <p class="text-xs text-yellow-700">🔄 Duplicados</p>
           </div>
           <div class="bg-red-50 rounded-lg p-3 text-center">
             <p class="text-2xl font-bold text-red-600">{{ importStats.errors }}</p>
@@ -275,6 +279,7 @@
         <p class="text-gray-500 mb-4">🏥 {{ selectedCenter }}</p>
         <div class="flex justify-center gap-6 my-4">
           <div><span class="text-3xl font-bold text-green-600">{{ importStats.success }}</span><p class="text-xs text-gray-500">Registros nuevos</p></div>
+          <div v-if="importStats.duplicates > 0"><span class="text-3xl font-bold text-yellow-600">{{ importStats.duplicates }}</span><p class="text-xs text-gray-500">Duplicados</p></div>
           <div v-if="importStats.errors > 0"><span class="text-3xl font-bold text-red-600">{{ importStats.errors }}</span><p class="text-xs text-gray-500">Errores</p></div>
         </div>
         <button @click="resetAll" class="px-6 py-3 bg-emergency-500 text-white font-medium rounded-xl hover:bg-emergency-600 transition-colors">
@@ -311,7 +316,7 @@
           importDone: false,
           importSummary: false,
           importLog: [],
-          importStats: { total: 0, imported: 0, success: 0, errors: 0, skipped: 0, percent: 0 },
+          importStats: { total: 0, imported: 0, success: 0, errors: 0, skipped: 0, duplicates: 0, percent: 0 },
           
           // Stats
           totalPatients: 0,
@@ -485,13 +490,46 @@
           this.importDone = false;
           this.importSummary = false;
           this.importLog = [];
-          this.importStats = { total: this.parsedData.length, imported: 0, success: 0, errors: 0, skipped: 0, percent: 0 };
+          this.importStats = { total: this.parsedData.length, imported: 0, success: 0, errors: 0, skipped: 0, duplicates: 0, percent: 0 };
           
-          this.addLog('info', `🚀 Importando ${this.parsedData.length} registros en 🏥 ${this.selectedCenter}...`);
+          const cedulaCol = this.mapping.cedula;
+          const center = this.selectedCenter.trim();
+          
+          // 🔍 Fase 1: Detectar duplicados — consultar cédulas existentes
+          let existingCedulas = new Set();
+          if (cedulaCol) {
+            const csvCedulas = this.parsedData
+              .map(row => String(row[cedulaCol] || '').trim())
+              .filter(c => c.length > 0);
+            
+            if (csvCedulas.length > 0) {
+              this.addLog('info', `🔍 Verificando ${csvCedulas.length} cédulas contra la base de datos...`);
+              
+              // Query in batches of 100 (Supabase IN clause limit)
+              for (let i = 0; i < csvCedulas.length; i += 100) {
+                const batch = csvCedulas.slice(i, i + 100);
+                const { data } = await this.supabase
+                  .from('pacientes')
+                  .select('cedula')
+                  .in('cedula', batch);
+                if (data) {
+                  data.forEach(d => existingCedulas.add(d.cedula));
+                }
+              }
+              
+              if (existingCedulas.size > 0) {
+                this.addLog('info', `🔍 ${existingCedulas.size} cédulas ya existen en la BD — se omitirán.`);
+              } else {
+                this.addLog('info', `🔍 Ninguna cédula duplicada. Todos son registros nuevos.`);
+              }
+            }
+          }
+          
+          // 🚀 Fase 2: Importar (saltando duplicados)
+          this.addLog('info', `🚀 Importando ${this.parsedData.length} registros en 🏥 ${center}...`);
           
           const BATCH_SIZE = 50;
           const rows = this.parsedData;
-          const center = this.selectedCenter.trim();
           
           for (let i = 0; i < rows.length; i += BATCH_SIZE) {
             const batch = rows.slice(i, i + BATCH_SIZE);
@@ -509,6 +547,12 @@
               if (!record.nombre) {
                 this.importStats.skipped++;
                 this.addLog('error', `⏭️ Fila ${i + records.length + 1}: falta nombre.`);
+                continue;
+              }
+              
+              // 🛡️ Verificar duplicado por cédula
+              if (record.cedula && existingCedulas.has(record.cedula)) {
+                this.importStats.duplicates++;
                 continue;
               }
               
@@ -539,7 +583,7 @@
           this.importDone = true;
           this.importStats.imported = rows.length;
           this.importStats.percent = 100;
-          this.addLog('info', `🏁 Finalizado. ${this.importStats.success} exitosos, ${this.importStats.errors} errores, ${this.importStats.skipped} saltados.`);
+          this.addLog('info', `🏁 Finalizado. ${this.importStats.success} nuevos, ${this.importStats.duplicates} duplicados, ${this.importStats.errors} errores, ${this.importStats.skipped} saltados.`);
           
           await this.loadStats();
           this.lastImport = new Date().toLocaleString('es-VE');
@@ -559,7 +603,7 @@
           this.importDone = false;
           this.importSummary = false;
           this.importLog = [];
-          this.importStats = { total: 0, imported: 0, success: 0, errors: 0, skipped: 0, percent: 0 };
+          this.importStats = { total: 0, imported: 0, success: 0, errors: 0, skipped: 0, duplicates: 0, percent: 0 };
         },
       },
       
