@@ -34,7 +34,8 @@
     .list-enter-from { opacity: 0; transform: translateX(-20px); }
     .list-leave-to { opacity: 0; transform: translateX(20px); }
     .capitalize { text-transform: capitalize; }
-    .card-gap { gap: 1rem; }
+    .uppercase-names { text-transform: uppercase; letter-spacing: 0.02em; }
+    .card-gap { gap: 1.25rem; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -119,7 +120,7 @@
             <div class="flex items-start justify-between gap-4">
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="font-bold text-gray-900 text-lg capitalize">{{ p.nombre }} {{ p.apellido }}</span>
+                  <span class="font-bold text-gray-900 text-lg uppercase-names">{{ p.nombre }} {{ p.apellido }}</span>
                   <span v-if="p.edad" class="text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{{ p.edad }} años</span>
                 </div>
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
