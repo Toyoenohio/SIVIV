@@ -33,6 +33,8 @@
     .list-enter-active, .list-leave-active { transition: all 0.3s ease; }
     .list-enter-from { opacity: 0; transform: translateX(-20px); }
     .list-leave-to { opacity: 0; transform: translateX(20px); }
+    .capitalize { text-transform: capitalize; }
+    .card-gap { gap: 1rem; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -60,8 +62,8 @@
             <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             <input 
               v-model="searchQuery"
-              @input="doSearch"
-              type="text" 
+              @input="onSearchInput"
+              type="search" 
               placeholder="Escribe un nombre o apellido..." 
               autocomplete="off"
               autofocus
@@ -110,14 +112,14 @@
         <p class="text-gray-400 text-sm">La información se actualizará en breve. Vuelve a intentarlo más tarde.</p>
       </div>
 
-      <div v-else class="flex flex-col gap-3">
+      <div v-else class="flex flex-col card-gap">
         <TransitionGroup name="list">
           <div v-for="p in filteredPatients" :key="p.id"
                class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
             <div class="flex items-start justify-between gap-4">
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="font-bold text-gray-900 text-lg">{{ p.nombre }} {{ p.apellido }}</span>
+                  <span class="font-bold text-gray-900 text-lg capitalize">{{ p.nombre }} {{ p.apellido }}</span>
                   <span v-if="p.edad" class="text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{{ p.edad }} años</span>
                 </div>
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
@@ -215,6 +217,11 @@
           } finally {
             this.loading = false;
           }
+        },
+        
+        onSearchInput(e) {
+          // Force reactivity on mobile — assign directly from DOM
+          this.searchQuery = e.target.value;
         },
         
         doSearch() { /* reactivo vía computed */ },
