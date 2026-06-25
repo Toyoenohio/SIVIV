@@ -1,29 +1,35 @@
 # SIVIV — Sistema de Información de Víctimas
 
-Registro y búsqueda de personas afectadas por el terremoto en Venezuela. App ligera (Vue 3 + Supabase), sin build step.
+Registro y búsqueda de personas afectadas por el terremoto en Venezuela.  
+App ligera (Vue 3 + Supabase + Tailwind CDN), sin build step, sin dependencias.
 
-## Configuración
+## Configuración (3 pasos)
 
-1. Ejecuta `setup.sql` en tu Supabase SQL Editor
-2. Copia tu **Project URL** y **anon key** de Supabase → Settings → API
-3. Reemplázalas en `index.html` (líneas ~180):
-   ```js
-   supabaseUrl: 'https://TU_PROJECT_ID.supabase.co',
-   supabaseKey: 'TU_ANON_KEY',
-   ```
-4. Haz deploy en Cloudflare Pages o GitHub Pages
+### 1. Base de datos
+Ejecuta `setup.sql` en tu Supabase SQL Editor.
 
-## Deploy
+### 2. Credenciales
 
-### Cloudflare Pages (recomendado)
-1. Conecta este repo en Cloudflare Pages
-2. Build command: *vacío* (es HTML estático)
+**Opción A — Cloudflare Pages (recomendado):**
+1. En Cloudflare Pages → Settings → Environment Variables, agrega:
+   - `SUPABASE_URL` = `https://xxxxx.supabase.co`
+   - `SUPABASE_KEY` = tu anon key
+2. Build command: `bash build.sh`
 3. Output directory: `/` (root)
 
-### GitHub Pages
-Settings → Pages → Source: main branch, root folder
+**Opción B — Manual:**
+1. Copia `config.example.js` → `config.js`
+2. Reemplaza los placeholders con tus credenciales reales
+3. `config.js` está en `.gitignore` — **nunca se sube al repo**
+
+### 3. Deploy
+
+- **Cloudflare Pages**: Conecta el repo, configura build como arriba.
+- **GitHub Pages**: Settings → Pages → Source: main. Asegúrate de tener `config.js` creado localmente.
+- **Vercel**: Importa el repo. Agrega env vars y usa `bash build.sh` como build command.
 
 ## Uso
 
-- **Buscar**: Escribe nombre/apellido/cédula — filtra instantáneamente
-- **Registrar**: Formulario para añadir personas. Acceso abierto.
+- 🔍 **Buscar**: Escribe nombre/apellido/cédula — filtra instantáneamente
+- ➕ **Registrar**: Formulario para añadir personas (acceso abierto — contexto de emergencia)
+- 🔄 Auto-refresh cada 60 segundos. Botón manual disponible.

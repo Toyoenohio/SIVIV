@@ -7,6 +7,7 @@
   <meta name="description" content="Buscador de personas afectadas por el terremoto. Encuentra a tus familiares en centros de atención.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>">
   
+  <script src="./config.js"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -239,9 +240,9 @@
       data() {
         return {
           // ═══════ CONFIGURACIÓN ═══════
-          // Reemplaza con tus credenciales de Supabase
-          supabaseUrl: 'https://TU_PROJECT_ID.supabase.co',
-          supabaseKey: 'TU_ANON_KEY',
+          // Cargada desde config.js (gitignored)
+          supabaseUrl: window.SIVIV_CONFIG?.supabaseUrl || '',
+          supabaseKey: window.SIVIV_CONFIG?.supabaseKey || '',
           // ══════════════════════════════
           
           tab: 'search',
