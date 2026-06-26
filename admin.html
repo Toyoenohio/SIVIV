@@ -328,6 +328,14 @@
             </select>
             <button @click="loadPatients" :disabled="patientLoading" 
                     class="px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 disabled:opacity-50 text-sm">🔍 Buscar</button>
+            <select v-model="patientSort" @change="patientPage = 1; loadPatients()"
+                    class="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm">
+              <option value="created_at.desc">🕐 Más reciente</option>
+              <option value="nombre.asc">🔤 Nombre A-Z</option>
+              <option value="nombre.desc">🔤 Nombre Z-A</option>
+              <option value="cedula.asc.nullslast">🪪 Cédula ↑</option>
+              <option value="cedula.desc.nullslast">🪪 Cédula ↓</option>
+            </select>
           </div>
         </div>
 
@@ -488,6 +496,7 @@
           // ─── Patient Management ─────────────────
           patientSearch: '',
           patientCenterFilter: '',
+          patientSort: 'created_at.desc',
           patients: [],
           patientTotal: 0,
           patientPage: 1,
@@ -895,6 +904,7 @@
           if (tab === 'patients') {
             this.selectedIds = new Set();
             this.patientPage = 1;
+            this.patientSort = 'created_at.desc';
             this.loadPatients();
           }
         },
@@ -934,8 +944,13 @@
             const from = (this.patientPage - 1) * this.PAGE_SIZE;
             const to = from + this.PAGE_SIZE - 1;
             
+            // Parse sort: "col.dir" or "col.dir.nullslast"
+            const [sortCol, sortDir, nulls] = this.patientSort.split('.');
+            const ascending = sortDir === 'asc';
+            const nullsFirst = nulls === 'nullsfirst';
+            
             const { data, count, error } = await query
-              .order('created_at', { ascending: false })
+              .order(sortCol, { ascending, nullsFirst })
               .range(from, to);
             
             if (error) throw error;
