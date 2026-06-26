@@ -249,13 +249,22 @@
           if (!this.allPatients.length) this.loading = true;
           this.connError = null;
           try {
-            const { data, error } = await this.supabase
-              .from('pacientes')
-              .select('*')
-              .order('created_at', { ascending: false })
-              .limit(500);
-            if (error) throw error;
-            this.allPatients = data || [];
+            const PAGE = 1000;
+            let all = [];
+            let offset = 0;
+            let batch;
+            do {
+              const { data, error } = await this.supabase
+                .from('pacientes')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .range(offset, offset + PAGE - 1);
+              if (error) throw error;
+              batch = data || [];
+              all = all.concat(batch);
+              offset += PAGE;
+            } while (batch.length === PAGE);
+            this.allPatients = all;
             this.lastFetched = Date.now();
             this.cacheHit = false;
             this.saveCache(this.allPatients);
