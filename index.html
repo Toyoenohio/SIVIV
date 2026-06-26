@@ -84,41 +84,36 @@
       <!-- Counter bar -->
       <div class="flex items-center justify-between mb-4 px-1">
         <p class="text-sm text-gray-500">
-          <span v-if="initialLoad && !loading" class="text-gray-400">
-            📋 {{ totalCount.toLocaleString() }} personas registradas — usa el buscador
-          </span>
-          <span v-else-if="loading" class="inline-flex items-center gap-2">
+          <span v-if="loading" class="inline-flex items-center gap-2">
             <span class="animate-pulse">⏳</span> Buscando...
           </span>
-          <span v-else-if="hasActiveSearch">
+          <span v-else-if="searchQuery.trim() || filterCenter">
             Mostrando <strong class="text-gray-900">{{ searchResults.length }}</strong> 
             de <strong class="text-gray-900">{{ resultCount.toLocaleString() }}</strong>
             <span v-if="resultCount > 50" class="text-gray-400 text-xs ml-1">— refiná tu búsqueda para ver más</span>
           </span>
           <span v-else class="text-gray-400">
-            📋 {{ totalCount.toLocaleString() }} personas registradas
+            📋 {{ totalCount.toLocaleString() }} personas registradas — usa el buscador
           </span>
         </p>
         <button @click="doSearch" :disabled="loading"
                 class="text-xs text-medical-600 hover:text-medical-700 font-medium disabled:opacity-50">🔄 Actualizar</button>
       </div>
 
+      <!-- Loading -->
+      <div v-if="loading" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+        <div class="animate-pulse text-5xl mb-4">⏳</div>
+        <p class="text-gray-500 text-sm">Buscando...</p>
+      </div>
+
       <!-- No results -->
-      <div v-if="!loading && hasActiveSearch && searchResults.length === 0" 
+      <div v-else-if="(searchQuery.trim() || filterCenter) && searchResults.length === 0" 
            class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
         <div class="text-5xl mb-4">🔍</div>
         <p class="text-gray-600 font-medium text-lg mb-2">Sin resultados</p>
         <p class="text-gray-400 text-sm">Intenta con otro nombre, apellido, cédula o centro.</p>
         <button @click="searchQuery=''; filterCenter=''; doSearch()" 
                 class="mt-4 text-medical-600 font-medium text-sm hover:underline">Limpiar filtros</button>
-      </div>
-
-      <!-- Initial prompt (no search yet) -->
-      <div v-else-if="initialLoad && !loading" 
-           class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
-        <div class="text-5xl mb-4">👆</div>
-        <p class="text-gray-600 font-medium text-lg mb-2">Busca a una persona</p>
-        <p class="text-gray-400 text-sm">Escribe un nombre, apellido o cédula en el campo de arriba.</p>
       </div>
 
       <!-- Results -->
@@ -141,6 +136,24 @@
             </div>
           </div>
         </TransitionGroup>
+      </div>
+
+      <!-- Empty state -->
+      <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+          <svg class="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+        <p class="text-gray-500 font-medium text-lg mb-1">Sin búsqueda activa</p>
+        <p class="text-gray-400 text-sm">
+          <template v-if="totalCount">
+            Hay {{ totalCount.toLocaleString() }} personas registradas.<br>Escribe un nombre, apellido o cédula para buscar.
+          </template>
+          <template v-else>
+            No hay registros aún. Vuelve más tarde.
+          </template>
+        </p>
       </div>
 
       <p class="text-center text-xs text-gray-400 mt-8">
@@ -172,18 +185,13 @@
           totalCount: 0,
           centers: [],
           loading: false,
-          initialLoad: true,
           connError: null,
           searchTimer: null,
           supabase: null,
         }
       },
       
-      computed: {
-        hasActiveSearch() {
-          return !this.initialLoad && (this.searchQuery.trim() || this.filterCenter);
-        }
-      },
+      computed: {},
       
       methods: {
         initSupabase() {
@@ -225,15 +233,12 @@
           
           const q = this.searchQuery.trim();
           
-          // If no search criteria and not initial — just reset
-          if (!q && !this.filterCenter && !this.initialLoad) {
+          // No criteria → reset to empty state
+          if (!q && !this.filterCenter) {
             this.searchResults = [];
             this.resultCount = 0;
             return;
           }
-          
-          // If initial and no search — just show prompt
-          if (!q && !this.filterCenter && this.initialLoad) return;
           
           this.loading = true;
           this.connError = null;
@@ -262,7 +267,6 @@
             
             this.searchResults = data || [];
             this.resultCount = count || 0;
-            this.initialLoad = false;
           } catch(e) {
             this.connError = true;
             console.error('doSearch:', e);
