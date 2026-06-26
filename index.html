@@ -33,7 +33,6 @@
     .list-enter-active, .list-leave-active { transition: all 0.3s ease; }
     .list-enter-from { opacity: 0; transform: translateX(-20px); }
     .list-leave-to { opacity: 0; transform: translateX(20px); }
-    .capitalize { text-transform: capitalize; }
     .uppercase-names { text-transform: uppercase; letter-spacing: 0.02em; }
     .card-gap { gap: 1.25rem; }
   </style>
@@ -65,7 +64,7 @@
               v-model="searchQuery"
               @input="onSearchInput"
               type="search" 
-              placeholder="Escribe un nombre o apellido..." 
+              placeholder="Escribe un nombre, apellido o cédula..." 
               autocomplete="off"
               autofocus
               class="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent text-lg"
@@ -82,41 +81,50 @@
         </div>
       </div>
 
+      <!-- Counter bar -->
       <div class="flex items-center justify-between mb-4 px-1">
         <p class="text-sm text-gray-500">
-          <span v-if="loading && !allPatients.length" class="inline-flex items-center gap-2">
-            <span class="animate-pulse">⏳</span> Cargando...
+          <span v-if="initialLoad && !loading" class="text-gray-400">
+            📋 {{ totalCount.toLocaleString() }} personas registradas — usa el buscador
           </span>
-          <span v-else>
-            <strong class="text-gray-900">{{ filteredPatients.length }}</strong> 
-            {{ filteredPatients.length === 1 ? 'persona encontrada' : 'personas encontradas' }}
-            <span v-if="allPatients.length && (searchQuery || filterCenter)">de {{ allPatients.length }} registradas</span>
-            <span v-if="lastFetched" class="text-gray-400 text-xs ml-2">· {{ freshness }}</span>
+          <span v-else-if="loading" class="inline-flex items-center gap-2">
+            <span class="animate-pulse">⏳</span> Buscando...
+          </span>
+          <span v-else-if="hasActiveSearch">
+            Mostrando <strong class="text-gray-900">{{ searchResults.length }}</strong> 
+            de <strong class="text-gray-900">{{ resultCount.toLocaleString() }}</strong>
+            <span v-if="resultCount > 50" class="text-gray-400 text-xs ml-1">— refiná tu búsqueda para ver más</span>
+          </span>
+          <span v-else class="text-gray-400">
+            📋 {{ totalCount.toLocaleString() }} personas registradas
           </span>
         </p>
-        <button @click="forceRefresh" :disabled="loading"
+        <button @click="doSearch" :disabled="loading"
                 class="text-xs text-medical-600 hover:text-medical-700 font-medium disabled:opacity-50">🔄 Actualizar</button>
       </div>
 
-      <div v-if="!loading && filteredPatients.length === 0 && (searchQuery || filterCenter)" 
+      <!-- No results -->
+      <div v-if="!loading && hasActiveSearch && searchResults.length === 0" 
            class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
         <div class="text-5xl mb-4">🔍</div>
         <p class="text-gray-600 font-medium text-lg mb-2">Sin resultados</p>
-        <p class="text-gray-400 text-sm">Intenta con otro nombre, apellido o centro.</p>
+        <p class="text-gray-400 text-sm">Intenta con otro nombre, apellido, cédula o centro.</p>
         <button @click="searchQuery=''; filterCenter=''; doSearch()" 
                 class="mt-4 text-medical-600 font-medium text-sm hover:underline">Limpiar filtros</button>
       </div>
 
-      <div v-else-if="!loading && allPatients.length === 0" 
+      <!-- Initial prompt (no search yet) -->
+      <div v-else-if="initialLoad && !loading" 
            class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
-        <div class="text-5xl mb-4">📋</div>
-        <p class="text-gray-600 font-medium text-lg mb-2">No hay personas registradas aún</p>
-        <p class="text-gray-400 text-sm">La información se actualizará en breve. Vuelve a intentarlo más tarde.</p>
+        <div class="text-5xl mb-4">👆</div>
+        <p class="text-gray-600 font-medium text-lg mb-2">Busca a una persona</p>
+        <p class="text-gray-400 text-sm">Escribe un nombre, apellido o cédula en el campo de arriba.</p>
       </div>
 
-      <div v-else class="flex flex-col card-gap">
+      <!-- Results -->
+      <div v-else-if="searchResults.length" class="flex flex-col card-gap">
         <TransitionGroup name="list">
-          <div v-for="p in filteredPatients" :key="p.id"
+          <div v-for="p in searchResults" :key="p.id"
                class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
             <div class="flex items-start justify-between gap-4">
               <div class="flex-1 min-w-0">
@@ -142,7 +150,7 @@
 
     <div v-if="connError" class="fixed bottom-4 left-4 right-4 max-w-lg mx-auto bg-red-600 text-white px-4 py-3 rounded-xl shadow-lg text-sm text-center z-50">
       ⚠️ Sin conexión. Verifica tu conexión e intenta de nuevo.
-      <button @click="connError=null; refreshData()" class="underline ml-2 font-medium">Reintentar</button>
+      <button @click="connError=null; doSearch()" class="underline ml-2 font-medium">Reintentar</button>
     </div>
   </div>
 
@@ -153,140 +161,115 @@
       data() {
         return {
           // ═══════ CONFIGURACIÓN ═══════
-          // Cargada desde config.js (gitignored)
           supabaseUrl: window.SIVIV_CONFIG?.supabaseUrl || '',
           supabaseKey: window.SIVIV_CONFIG?.supabaseKey || '',
           // ══════════════════════════════
           
           searchQuery: '',
           filterCenter: '',
-          allPatients: [],
-          loading: true,
+          searchResults: [],
+          resultCount: 0,
+          totalCount: 0,
+          centers: [],
+          loading: false,
+          initialLoad: true,
           connError: null,
-          lastFetched: null,
-          cacheHit: false,
-          
+          searchTimer: null,
           supabase: null,
         }
       },
       
       computed: {
-        filteredPatients() {
-          let result = this.allPatients;
-          const q = this.searchQuery.toLowerCase().trim();
-          if (q) {
-            result = result.filter(p => 
-              p.nombre.toLowerCase().includes(q) ||
-              p.apellido.toLowerCase().includes(q) ||
-              (p.cedula && p.cedula.includes(q)) ||
-              `${p.nombre} ${p.apellido}`.toLowerCase().includes(q)
-            );
-          }
-          if (this.filterCenter) {
-            result = result.filter(p => p.centro === this.filterCenter);
-          }
-          return result;
-        },
-        centers() {
-          const c = new Set(this.allPatients.map(p => p.centro).filter(Boolean));
-          return [...c].sort((a, b) => a.localeCompare(b, 'es'));
-        },
-        freshness() {
-          if (!this.lastFetched) return '';
-          const sec = Math.floor((Date.now() - this.lastFetched) / 1000);
-          if (sec < 5) return 'ahora';
-          if (sec < 60) return `hace ${sec}s`;
-          const min = Math.floor(sec / 60);
-          if (min < 60) return `hace ${min} min`;
-          return `hace ${Math.floor(min / 60)}h`;
+        hasActiveSearch() {
+          return !this.initialLoad && (this.searchQuery.trim() || this.filterCenter);
         }
       },
       
       methods: {
-        // ─── Cache ──────────────────────────────────
-        CACHE_KEY: 'siviv_data',
-        CACHE_TTL: 60_000, // 60 seconds
-        
-        loadCache() {
-          try {
-            const raw = localStorage.getItem(this.CACHE_KEY);
-            if (!raw) return null;
-            const cache = JSON.parse(raw);
-            if (Date.now() - cache.ts > this.CACHE_TTL) return null;
-            return cache;
-          } catch { return null; }
-        },
-        
-        saveCache(data) {
-          try {
-            localStorage.setItem(this.CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
-          } catch { /* localStorage full — ignore */ }
-        },
-        
         initSupabase() {
           try {
             this.supabase = supabase.createClient(this.supabaseUrl, this.supabaseKey);
-            
-            // Serve cache immediately
-            const cache = this.loadCache();
-            if (cache) {
-              this.allPatients = cache.data;
-              this.lastFetched = cache.ts;
-              this.cacheHit = true;
-              this.loading = false;
-            }
-            
-            // Then refresh from DB
-            this.refreshData();
+            this.loadCounts();
           } catch(e) {
             this.connError = true;
-            this.loading = false;
           }
         },
         
-        async refreshData() {
+        async loadCounts() {
           if (!this.supabase) return;
-          if (!this.allPatients.length) this.loading = true;
-          this.connError = null;
           try {
-            const PAGE = 1000;
-            let all = [];
-            let offset = 0;
-            let batch;
-            do {
-              const { data, error } = await this.supabase
-                .from('pacientes')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .range(offset, offset + PAGE - 1);
-              if (error) throw error;
-              batch = data || [];
-              all = all.concat(batch);
-              offset += PAGE;
-            } while (batch.length === PAGE);
-            this.allPatients = all;
-            this.lastFetched = Date.now();
-            this.cacheHit = false;
-            this.saveCache(this.allPatients);
+            // Total registros + lista de centros (paralelo)
+            const [countRes, centersRes] = await Promise.all([
+              this.supabase.from('pacientes').select('*', { count: 'exact', head: true }),
+              this.supabase.from('pacientes').select('centro')
+            ]);
+            
+            if (countRes.error) throw countRes.error;
+            if (centersRes.error) throw centersRes.error;
+            
+            this.totalCount = countRes.count || 0;
+            const c = new Set((centersRes.data || []).map(p => p.centro).filter(Boolean));
+            this.centers = [...c].sort((a, b) => a.localeCompare(b, 'es'));
+          } catch(e) {
+            console.error('loadCounts:', e);
+          }
+        },
+        
+        onSearchInput() {
+          clearTimeout(this.searchTimer);
+          this.searchTimer = setTimeout(() => this.doSearch(), 300);
+        },
+        
+        async doSearch() {
+          if (!this.supabase) return;
+          
+          const q = this.searchQuery.trim();
+          
+          // If no search criteria and not initial — just reset
+          if (!q && !this.filterCenter && !this.initialLoad) {
+            this.searchResults = [];
+            this.resultCount = 0;
+            return;
+          }
+          
+          // If initial and no search — just show prompt
+          if (!q && !this.filterCenter && this.initialLoad) return;
+          
+          this.loading = true;
+          this.connError = null;
+          
+          try {
+            let query = this.supabase
+              .from('pacientes')
+              .select('*', { count: 'exact' });
+            
+            if (q) {
+              const pattern = `%${q}%`;
+              query = query.or(
+                `nombre.ilike.${pattern},apellido.ilike.${pattern},cedula.ilike.${pattern}`
+              );
+            }
+            
+            if (this.filterCenter) {
+              query = query.eq('centro', this.filterCenter);
+            }
+            
+            const { data, count, error } = await query
+              .order('created_at', { ascending: false })
+              .limit(50);
+            
+            if (error) throw error;
+            
+            this.searchResults = data || [];
+            this.resultCount = count || 0;
+            this.initialLoad = false;
           } catch(e) {
             this.connError = true;
+            console.error('doSearch:', e);
           } finally {
             this.loading = false;
           }
         },
-        
-        forceRefresh() {
-          if (this.loading) return;
-          this.loading = true;
-          this.refreshData();
-        },
-        
-        onSearchInput(e) {
-          // Force reactivity on mobile — assign directly from DOM
-          this.searchQuery = e.target.value;
-        },
-        
-        doSearch() { /* reactivo vía computed */ },
         
         formatDate(dateStr) {
           if (!dateStr) return '';
@@ -303,7 +286,6 @@
       
       mounted() {
         this.initSupabase();
-        setInterval(() => { if (!this.loading) this.refreshData(); }, 120_000);
       }
     }).mount('#app');
   </script>
