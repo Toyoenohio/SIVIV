@@ -2,16 +2,15 @@
  * SIVIV — Pages Function proxy para Supabase
  * 
  * Intercepta /api/rest/v1/* → cachea GET → forward al Supabase real.
- * Las credenciales van en Cloudflare Dashboard → Pages → Settings → Environment Variables.
  * 
- * Variables esperadas:
- *   SUPABASE_URL      = https://bcmuwbzepqfztxpdikux.supabase.co
- *   SUPABASE_KEY      = eyJhbGciOi... (anon key)
+ * Variables de entorno en Cloudflare Pages:
+ *   SUPABASE_URL = https://bcmuwbzepqfztxpdikux.supabase.co
+ *   SUPABASE_KEY = eyJhbGciOi...  (anon key)
+ *   ADMIN_KEY    = Humo1502*        (admin key)
  */
 
-// Rate limiting en memoria (resetea en cold start — aceptable para emergencia)
 const RATE_MAP = new Map();
-const RATE_MAX = 30;   // requests por minuto por IP
+const RATE_MAX = 30;
 const RATE_WIN = 60_000;
 
 export async function onRequest(context) {
@@ -19,6 +18,19 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const ip = request.headers.get('cf-connecting-ip') || 'unknown';
   const now = Date.now();
+  const method = request.method;
+
+  // ── Auth: escrituras requieren admin key ──
+  const isRead = method === 'GET' || method === 'HEAD';
+  if (!isRead) {
+    const adminKey = request.headers.get('x-admin-key') || '';
+    if (!env.ADMIN_KEY || adminKey !== env.ADMIN_KEY) {
+      return new Response(JSON.stringify({ error: 'unauthorized' }), {
+        status: 401,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
+  }
 
   // ── Rate limit ──
   let hits = RATE_MAP.get(ip) || [];
@@ -42,11 +54,9 @@ export async function onRequest(context) {
   // ── Construir URL real de Supabase ──
   const realUrl = url.pathname.replace('/api', '') + url.search;
   const supabaseUrl = env.SUPABASE_URL + realUrl;
+  const cacheKey = new Request(supabaseUrl, { method });
 
-  const isRead = request.method === 'GET' || request.method === 'HEAD';
-  const cacheKey = new Request(supabaseUrl, { method: request.method });
-
-  // ── GET: intentar cache ──
+  // ── GET: cache ──
   if (isRead) {
     const cache = caches.default;
     let resp = await cache.match(cacheKey);
@@ -58,7 +68,7 @@ export async function onRequest(context) {
     }
 
     resp = await fetch(supabaseUrl, {
-      method: request.method,
+      method,
       headers: {
         'apikey': env.SUPABASE_KEY,
         'authorization': `Bearer ${env.SUPABASE_KEY}`,
@@ -79,16 +89,16 @@ export async function onRequest(context) {
   }
 
   // ── POST/DELETE/PATCH: forward sin cache ──
-  const body = ['GET', 'HEAD'].includes(request.method) ? undefined : await request.text();
+  const body = await request.text();
 
   return fetch(supabaseUrl, {
-    method: request.method,
+    method,
     headers: {
       'apikey': env.SUPABASE_KEY,
       'authorization': `Bearer ${env.SUPABASE_KEY}`,
       'content-type': 'application/json',
       'prefer': request.headers.get('prefer') || '',
     },
-    body,
+    body: body || undefined,
   });
 }

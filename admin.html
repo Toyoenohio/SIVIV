@@ -575,7 +575,9 @@
         // ─── DB ───────────────────────────────────
         initSupabase() {
           const cfg = window.SIVIV_CONFIG || {};
-          this.supabase = supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey);
+          this.supabase = supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey, {
+            global: { headers: { 'x-admin-key': cfg.adminKey || '' } }
+          });
           this.loadStats();
         },
         
