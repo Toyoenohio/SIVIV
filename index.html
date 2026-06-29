@@ -3,15 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SIVIV — Sistema de Información de Víctimas</title>
-  <meta name="description" content="Buscador de personas afectadas por el terremoto. Encuentra a tus familiares en centros de atención.">
+  <title>SIVIV — Documentación</title>
+  <meta name="description" content="SIVIV: Sistema de Información de Víctimas del terremoto en Venezuela. Documentación del proyecto y API.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>">
-  
-  <script src="./config.js"></script>
-  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  
   <script>
     tailwind.config = {
       theme: {
@@ -24,274 +19,269 @@
       }
     }
   </script>
-
   <style>
-    * { -webkit-tap-highlight-color: transparent; }
     body { font-family: system-ui, -apple-system, sans-serif; }
-    .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
-    .fade-enter-from, .fade-leave-to { opacity: 0; }
-    .list-enter-active, .list-leave-active { transition: all 0.3s ease; }
-    .list-enter-from { opacity: 0; transform: translateX(-20px); }
-    .list-leave-to { opacity: 0; transform: translateX(20px); }
-    .uppercase-names { text-transform: uppercase; letter-spacing: 0.02em; }
-    .card-gap { gap: 1.25rem; }
+    pre { overflow-x: auto; }
+    code { font-size: 0.875rem; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-  
-  <div id="app">
-    <!-- Header -->
-    <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-      <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-emergency-500 rounded-full flex items-center justify-center">
-            <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-          </div>
-          <div>
-            <h1 class="font-bold text-gray-900 text-lg leading-tight">SIVIV</h1>
-            <p class="text-xs text-gray-500">Sistema de Información de Víctimas</p>
-          </div>
-        </div>
+
+<header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+  <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-emergency-500 rounded-full flex items-center justify-center">
+        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
       </div>
-    </header>
-
-    <main class="max-w-4xl mx-auto px-4 py-6">
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 mb-4">
-        <div class="flex flex-col sm:flex-row gap-3">
-          <div class="flex-1 relative">
-            <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-            <input 
-              v-model="searchQuery"
-              @input="onSearchInput"
-              type="search" 
-              placeholder="Escribe un nombre, apellido o cédula..." 
-              autocomplete="off"
-              autofocus
-              class="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent text-lg"
-            >
-          </div>
-          <select 
-            v-model="filterCenter"
-            @change="doSearch"
-            class="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-medical-500 text-base min-w-[180px]"
-          >
-            <option value="">🏥 Todos los centros</option>
-            <option v-for="c in centers" :key="c" :value="c">{{ c }}</option>
-          </select>
-        </div>
+      <div>
+        <h1 class="font-bold text-gray-900 text-lg leading-tight">SIVIV</h1>
+        <p class="text-xs text-gray-500">Documentación del proyecto</p>
       </div>
-
-      <!-- Counter bar -->
-      <div class="flex items-center justify-between mb-4 px-1">
-        <p class="text-sm text-gray-500">
-          <span v-if="loading" class="inline-flex items-center gap-2">
-            <span class="animate-pulse">⏳</span> Buscando...
-          </span>
-          <span v-else-if="searchQuery.trim() || filterCenter">
-            Mostrando <strong class="text-gray-900">{{ searchResults.length }}</strong> 
-            de <strong class="text-gray-900">{{ resultCount.toLocaleString() }}</strong>
-            <span v-if="resultCount > 50" class="text-gray-400 text-xs ml-1">— refiná tu búsqueda para ver más</span>
-          </span>
-          <span v-else class="text-gray-400">
-            📋 {{ totalCount.toLocaleString() }} personas registradas — usa el buscador
-          </span>
-        </p>
-        <button @click="doSearch" :disabled="loading"
-                class="text-xs text-medical-600 hover:text-medical-700 font-medium disabled:opacity-50">🔄 Actualizar</button>
-      </div>
-
-      <!-- Loading -->
-      <div v-if="loading" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
-        <div class="animate-pulse text-5xl mb-4">⏳</div>
-        <p class="text-gray-500 text-sm">Buscando...</p>
-      </div>
-
-      <!-- No results -->
-      <div v-else-if="(searchQuery.trim() || filterCenter) && searchResults.length === 0" 
-           class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
-        <div class="text-5xl mb-4">🔍</div>
-        <p class="text-gray-600 font-medium text-lg mb-2">Sin resultados</p>
-        <p class="text-gray-400 text-sm">Intenta con otro nombre, apellido, cédula o centro.</p>
-        <button @click="searchQuery=''; filterCenter=''; doSearch()" 
-                class="mt-4 text-medical-600 font-medium text-sm hover:underline">Limpiar filtros</button>
-      </div>
-
-      <!-- Results -->
-      <div v-else-if="searchResults.length" class="flex flex-col card-gap">
-        <TransitionGroup name="list">
-          <div v-for="p in searchResults" :key="p.id"
-               class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
-            <div class="flex items-start justify-between gap-4">
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="font-bold text-gray-900 text-lg uppercase-names">{{ p.nombre }} {{ p.apellido }}</span>
-                  <span v-if="p.edad" class="text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{{ p.edad }} años</span>
-                </div>
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
-                  <span v-if="p.cedula">C.I. {{ p.cedula }}</span>
-                  <span>🏥 {{ p.centro }}</span>
-                </div>
-              </div>
-              <span class="text-xs text-gray-400 whitespace-nowrap">{{ formatDate(p.created_at) }}</span>
-            </div>
-          </div>
-        </TransitionGroup>
-      </div>
-
-      <!-- Empty state -->
-      <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
-        <div class="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-          <svg class="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-          </svg>
-        </div>
-        <p class="text-gray-500 font-medium text-lg mb-1">Sin búsqueda activa</p>
-        <p class="text-gray-400 text-sm">
-          <template v-if="totalCount">
-            Hay {{ totalCount.toLocaleString() }} personas registradas.<br>Escribe un nombre, apellido o cédula para buscar.
-          </template>
-          <template v-else>
-            No hay registros aún. Vuelve más tarde.
-          </template>
-        </p>
-      </div>
-
-      <p class="text-center text-xs text-gray-400 mt-8">
-        Si encuentras a tu familiar, por favor ayuda a mantener esta lista actualizada.
-      </p>
-    </main>
-
-    <div v-if="connError" class="fixed bottom-4 left-4 right-4 max-w-lg mx-auto bg-red-600 text-white px-4 py-3 rounded-xl shadow-lg text-sm text-center z-50">
-      ⚠️ Sin conexión. Verifica tu conexión e intenta de nuevo.
-      <button @click="connError=null; doSearch()" class="underline ml-2 font-medium">Reintentar</button>
     </div>
+    <a href="/archive" class="text-sm text-medical-600 hover:text-medical-700 font-medium">📋 Buscador original</a>
   </div>
+</header>
 
-  <script>
-    const { createApp } = Vue;
+<main class="max-w-4xl mx-auto px-4 py-8 space-y-8">
 
-    createApp({
-      data() {
-        return {
-          // ═══════ CONFIGURACIÓN ═══════
-          supabaseUrl: window.SIVIV_CONFIG?.supabaseUrl || '',
-          supabaseKey: window.SIVIV_CONFIG?.supabaseKey || '',
-          // ══════════════════════════════
-          
-          searchQuery: '',
-          filterCenter: '',
-          searchResults: [],
-          resultCount: 0,
-          totalCount: 0,
-          centers: [],
-          loading: false,
-          connError: null,
-          searchTimer: null,
-          supabase: null,
-        }
-      },
-      
-      computed: {},
-      
-      methods: {
-        initSupabase() {
-          try {
-            this.supabase = supabase.createClient(this.supabaseUrl, this.supabaseKey);
-            this.loadCounts();
-          } catch(e) {
-            this.connError = true;
-          }
-        },
-        
-        async loadCounts() {
-          if (!this.supabase) return;
-          try {
-            // Total registros + lista de centros (paralelo)
-            const [countRes, centersRes] = await Promise.all([
-              this.supabase.from('pacientes').select('*', { count: 'exact', head: true }),
-              this.supabase.from('pacientes').select('centro')
-            ]);
-            
-            if (countRes.error) throw countRes.error;
-            if (centersRes.error) throw centersRes.error;
-            
-            this.totalCount = countRes.count || 0;
-            const c = new Set((centersRes.data || []).map(p => p.centro).filter(Boolean));
-            this.centers = [...c].sort((a, b) => a.localeCompare(b, 'es'));
-          } catch(e) {
-            console.error('loadCounts:', e);
-          }
-        },
-        
-        onSearchInput() {
-          clearTimeout(this.searchTimer);
-          this.searchTimer = setTimeout(() => this.doSearch(), 300);
-        },
-        
-        async doSearch() {
-          if (!this.supabase) return;
-          
-          const q = this.searchQuery.trim();
-          
-          // No criteria → reset to empty state
-          if (!q && !this.filterCenter) {
-            this.searchResults = [];
-            this.resultCount = 0;
-            return;
-          }
-          
-          this.loading = true;
-          this.connError = null;
-          
-          try {
-            let query = this.supabase
-              .from('pacientes')
-              .select('*', { count: 'exact' });
-            
-            if (q) {
-              const pattern = `%${q}%`;
-              query = query.or(
-                `nombre.ilike.${pattern},apellido.ilike.${pattern},cedula.ilike.${pattern}`
-              );
-            }
-            
-            if (this.filterCenter) {
-              query = query.eq('centro', this.filterCenter);
-            }
-            
-            const { data, count, error } = await query
-              .order('created_at', { ascending: false })
-              .limit(50);
-            
-            if (error) throw error;
-            
-            this.searchResults = data || [];
-            this.resultCount = count || 0;
-          } catch(e) {
-            this.connError = true;
-            console.error('doSearch:', e);
-          } finally {
-            this.loading = false;
-          }
-        },
-        
-        formatDate(dateStr) {
-          if (!dateStr) return '';
-          const d = new Date(dateStr);
-          const now = new Date();
-          const diffMin = Math.floor((now - d) / 60000);
-          if (diffMin < 1) return 'Ahora';
-          if (diffMin < 60) return `Hace ${diffMin} min`;
-          const diffHrs = Math.floor(diffMin / 60);
-          if (diffHrs < 24) return `Hace ${diffHrs}h`;
-          return d.toLocaleDateString('es-VE', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
-        }
-      },
-      
-      mounted() {
-        this.initSupabase();
-      }
-    }).mount('#app');
-  </script>
+  <!-- Hero -->
+  <section class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8">
+    <div class="flex items-start gap-4 mb-4">
+      <span class="text-4xl">🇻🇪</span>
+      <div>
+        <h2 class="text-2xl font-extrabold text-gray-900 mb-1">Sistema de Información de Víctimas</h2>
+        <p class="text-gray-500 font-medium">Proyecto de emergencia — Terremoto en Venezuela, junio 2025</p>
+      </div>
+    </div>
+    <div class="bg-emergency-50 border border-emergency-100 rounded-xl p-4 text-sm text-emergency-700">
+      <strong>Estado:</strong> Proyecto archivado. La API se mantiene activa. El buscador público está disponible en <a href="/archive" class="underline font-semibold">/archive</a>.
+    </div>
+  </section>
+
+  <!-- Contexto -->
+  <section class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8">
+    <h3 class="text-lg font-bold text-gray-900 mb-3">📖 Contexto</h3>
+    <p class="text-gray-600 leading-relaxed mb-3">
+      SIVIV nació como respuesta inmediata al terremoto que afectó Venezuela en junio de 2025. 
+      Su objetivo era centralizar la información de personas ingresadas en hospitales y centros de atención, 
+      permitiendo a familiares buscar a sus seres queridos por nombre, apellido o cédula.
+    </p>
+    <p class="text-gray-600 leading-relaxed mb-3">
+      La aplicación se diseñó con tres principios:
+    </p>
+    <ul class="list-disc pl-5 text-gray-600 space-y-1 mb-3">
+      <li><strong>Ligereza extrema:</strong> un solo archivo HTML, sin build step, sin dependencias de servidor</li>
+      <li><strong>Resiliencia:</strong> funciona en conexiones deficientes (2G/3G), común en zonas de emergencia</li>
+      <li><strong>Privacidad:</strong> sin tracking, sin cookies, sin registro de usuarios</li>
+    </ul>
+    <p class="text-gray-600 leading-relaxed">
+      Durante su operación, SIVIV procesó <strong>más de 500 registros</strong> de pacientes distribuidos en 
+      múltiples centros de atención en el estado Anzoátegui y zonas aledañas.
+    </p>
+  </section>
+
+  <!-- Arquitectura -->
+  <section class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8">
+    <h3 class="text-lg font-bold text-gray-900 mb-3">🏗️ Arquitectura</h3>
+    
+    <div class="bg-gray-50 rounded-xl p-4 mb-4 text-sm font-mono text-gray-700 overflow-x-auto">
+      Usuario → Cloudflare Pages → Pages Function (proxy) → Supabase (PostgreSQL + RLS)
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="text-left px-4 py-2 font-semibold text-gray-700">Capa</th>
+            <th class="text-left px-4 py-2 font-semibold text-gray-700">Tecnología</th>
+            <th class="text-left px-4 py-2 font-semibold text-gray-700">Rol</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr>
+            <td class="px-4 py-3 font-medium">Frontend</td>
+            <td class="px-4 py-3"><code>Vue 3 + Tailwind CSS (CDN)</code></td>
+            <td class="px-4 py-3 text-gray-600">Buscador público + Panel admin</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3 font-medium">Proxy / API</td>
+            <td class="px-4 py-3"><code>Cloudflare Pages Function</code></td>
+            <td class="px-4 py-3 text-gray-600">Cache (60s), rate limit (30 req/min), auth admin</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3 font-medium">Base de datos</td>
+            <td class="px-4 py-3"><code>Supabase (PostgreSQL)</code></td>
+            <td class="px-4 py-3 text-gray-600">Registros + búsqueda full-text (pg_trgm)</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3 font-medium">Hosting</td>
+            <td class="px-4 py-3"><code>Cloudflare Pages</code></td>
+            <td class="px-4 py-3 text-gray-600">Edge deployment global, SSL, CDN</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- API -->
+  <section class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8">
+    <h3 class="text-lg font-bold text-gray-900 mb-3">🔌 API</h3>
+    <p class="text-gray-600 leading-relaxed mb-4">
+      La API es un proxy sobre Supabase REST, alojado como Cloudflare Pages Function. 
+      Se mantiene activa como legado del proyecto.
+    </p>
+
+    <h4 class="font-bold text-gray-800 mb-2">Base URL</h4>
+    <pre class="bg-gray-900 text-green-400 rounded-xl p-4 text-sm mb-4 overflow-x-auto">https://siviv.pages.dev/api</pre>
+
+    <h4 class="font-bold text-gray-800 mb-2">Endpoints</h4>
+    <p class="text-gray-500 text-sm mb-3">La API expone la tabla <code>pacientes</code> de Supabase vía REST:</p>
+
+    <div class="overflow-x-auto mb-4">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="text-left px-4 py-2 font-semibold text-gray-700">Método</th>
+            <th class="text-left px-4 py-2 font-semibold text-gray-700">Ruta</th>
+            <th class="text-left px-4 py-2 font-semibold text-gray-700">Descripción</th>
+            <th class="text-left px-4 py-2 font-semibold text-gray-700">Auth</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr>
+            <td class="px-4 py-3"><span class="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-bold">GET</span></td>
+            <td class="px-4 py-3"><code>/rest/v1/pacientes</code></td>
+            <td class="px-4 py-3 text-gray-600">Listar/buscar pacientes</td>
+            <td class="px-4 py-3"><span class="text-green-600 font-medium">Público</span></td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3"><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-bold">POST</span></td>
+            <td class="px-4 py-3"><code>/rest/v1/pacientes</code></td>
+            <td class="px-4 py-3 text-gray-600">Insertar paciente</td>
+            <td class="px-4 py-3"><span class="text-red-600 font-medium">Admin Key</span></td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3"><span class="bg-red-100 text-red-800 px-2 py-0.5 rounded text-xs font-bold">DELETE</span></td>
+            <td class="px-4 py-3"><code>/rest/v1/pacientes?id=eq.X</code></td>
+            <td class="px-4 py-3 text-gray-600">Eliminar paciente</td>
+            <td class="px-4 py-3"><span class="text-red-600 font-medium">Admin Key</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4 class="font-bold text-gray-800 mb-2">Parámetros de búsqueda (GET)</h4>
+    <p class="text-gray-500 text-sm mb-3">La API acepta todos los operadores de Supabase REST:</p>
+    
+    <pre class="bg-gray-900 text-green-400 rounded-xl p-4 text-sm mb-3 overflow-x-auto">GET /api/rest/v1/pacientes?select=nombre,apellido,centro&nombre=ilike.%maria%&limit=10</pre>
+
+    <div class="overflow-x-auto mb-4">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="text-left px-4 py-2 font-semibold text-gray-700">Parámetro</th>
+            <th class="text-left px-4 py-2 font-semibold text-gray-700">Ejemplo</th>
+            <th class="text-left px-4 py-2 font-semibold text-gray-700">Descripción</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr><td class="px-4 py-3"><code>select</code></td><td class="px-4 py-3"><code>nombre,apellido,edad</code></td><td class="px-4 py-3 text-gray-600">Columnas a retornar</td></tr>
+          <tr><td class="px-4 py-3"><code>nombre</code></td><td class="px-4 py-3"><code>ilike.%maria%</code></td><td class="px-4 py-3 text-gray-600">Filtro case-insensitive</td></tr>
+          <tr><td class="px-4 py-3"><code>or</code></td><td class="px-4 py-3"><code>(nombre.ilike.%X%,apellido.ilike.%X%)</code></td><td class="px-4 py-3 text-gray-600">OR lógico entre condiciones</td></tr>
+          <tr><td class="px-4 py-3"><code>order</code></td><td class="px-4 py-3"><code>created_at.desc</code></td><td class="px-4 py-3 text-gray-600">Ordenamiento</td></tr>
+          <tr><td class="px-4 py-3"><code>limit</code></td><td class="px-4 py-3"><code>50</code></td><td class="px-4 py-3 text-gray-600">Máx resultados (default 50)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4 class="font-bold text-gray-800 mb-2">Autenticación (POST / DELETE)</h4>
+    <pre class="bg-gray-900 text-green-400 rounded-xl p-4 text-sm mb-3 overflow-x-auto">fetch('https://siviv.pages.dev/api/rest/v1/pacientes', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-admin-key': '&lt;ADMIN_KEY&gt;'
+  },
+  body: JSON.stringify({
+    nombre: 'María',
+    apellido: 'González',
+    edad: 34,
+    centro: 'Hospital Central'
+  })
+})</pre>
+
+    <h4 class="font-bold text-gray-800 mb-2">Cabeceras de respuesta</h4>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="text-left px-4 py-2 font-semibold text-gray-700">Header</th>
+            <th class="text-left px-4 py-2 font-semibold text-gray-700">Valor</th>
+            <th class="text-left px-4 py-2 font-semibold text-gray-700">Significado</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr><td class="px-4 py-3"><code>x-siviv-cache</code></td><td class="px-4 py-3"><code>HIT</code> / <code>MISS</code></td><td class="px-4 py-3 text-gray-600">Cache de 60s en el edge</td></tr>
+          <tr><td class="px-4 py-3"><code>cache-control</code></td><td class="px-4 py-3"><code>public, max-age=60</code></td><td class="px-4 py-3 text-gray-600">Caché en CDN</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Esquema -->
+  <section class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8">
+    <h3 class="text-lg font-bold text-gray-900 mb-3">🗄️ Esquema de datos</h3>
+    
+    <pre class="bg-gray-900 text-green-400 rounded-xl p-4 text-sm mb-4 overflow-x-auto">CREATE TABLE public.pacientes (
+  id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  nombre     TEXT NOT NULL,
+  apellido   TEXT NOT NULL,
+  edad       INTEGER,
+  cedula     TEXT,
+  centro     TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Índices para búsqueda rápida
+CREATE INDEX idx_pacientes_nombre_trgm   ON pacientes USING GIN (nombre gin_trgm_ops);
+CREATE INDEX idx_pacientes_apellido_trgm ON pacientes USING GIN (apellido gin_trgm_ops);
+CREATE INDEX idx_pacientes_cedula        ON pacientes (cedula);
+
+-- Seguridad: Row Level Security
+ALTER TABLE pacientes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "lectura_publica"  ON pacientes FOR SELECT USING (true);
+CREATE POLICY "registro_publico" ON pacientes FOR INSERT WITH CHECK (true);
+CREATE POLICY "admin_delete"     ON pacientes FOR DELETE USING (true);</pre>
+  </section>
+
+  <!-- Limitaciones -->
+  <section class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8">
+    <h3 class="text-lg font-bold text-gray-900 mb-3">⚠️ Limitaciones</h3>
+    <ul class="list-disc pl-5 text-gray-600 space-y-2">
+      <li><strong>Rate limit:</strong> 30 peticiones por minuto por IP</li>
+      <li><strong>Resultados máximos:</strong> 50 por consulta (paginar con <code>limit</code> + <code>offset</code>)</li>
+      <li><strong>Cache:</strong> GET requests tienen cache de 60s en el edge</li>
+      <li><strong>Sin autenticación de usuarios:</strong> el sistema fue diseñado para acceso público en contexto de emergencia</li>
+      <li><strong>Plan gratuito de Supabase:</strong> sujeto a límites de bandwidth y conexiones simultáneas</li>
+    </ul>
+  </section>
+
+  <!-- Repo -->
+  <section class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8">
+    <h3 class="text-lg font-bold text-gray-900 mb-3">📦 Repositorio</h3>
+    <p class="text-gray-600 leading-relaxed mb-3">
+      Código fuente disponible en GitHub:
+    </p>
+    <a href="https://github.com/Toyoenohio/SIVIV" class="inline-flex items-center gap-2 text-medical-600 hover:text-medical-700 font-medium">
+      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+      Toyoenohio/SIVIV
+    </a>
+  </section>
+
+  <footer class="text-center text-xs text-gray-400 py-4">
+    SIVIV — Junio 2025. Construido durante la emergencia sísmica en Venezuela. 🇻🇪
+  </footer>
+
+</main>
+
 </body>
 </html>

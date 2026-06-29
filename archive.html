@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIVIV — Sistema de Información de Víctimas</title>
+  <meta name="description" content="Buscador de personas afectadas por el terremoto. Encuentra a tus familiares en centros de atención.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>">
+  
+  <script src="./config.js"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            emergency: { 50:'#fef2f2', 100:'#fee2e2', 500:'#dc2626', 600:'#b91c1c', 700:'#991b1b' },
+            medical: { 50:'#eff6ff', 100:'#dbeafe', 500:'#2563eb', 600:'#1d4ed8' }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+    .fade-enter-from, .fade-leave-to { opacity: 0; }
+    .list-enter-active, .list-leave-active { transition: all 0.3s ease; }
+    .list-enter-from { opacity: 0; transform: translateX(-20px); }
+    .list-leave-to { opacity: 0; transform: translateX(20px); }
+    .uppercase-names { text-transform: uppercase; letter-spacing: 0.02em; }
+    .card-gap { gap: 1.25rem; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  
+  <div id="app">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+      <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-emergency-500 rounded-full flex items-center justify-center">
+            <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+          </div>
+          <div>
+            <h1 class="font-bold text-gray-900 text-lg leading-tight">SIVIV</h1>
+            <p class="text-xs text-gray-500">Sistema de Información de Víctimas</p>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-6">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 mb-4">
+        <div class="flex flex-col sm:flex-row gap-3">
+          <div class="flex-1 relative">
+            <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input 
+              v-model="searchQuery"
+              @input="onSearchInput"
+              type="search" 
+              placeholder="Escribe un nombre, apellido o cédula..." 
+              autocomplete="off"
+              autofocus
+              class="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent text-lg"
+            >
+          </div>
+          <select 
+            v-model="filterCenter"
+            @change="doSearch"
+            class="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-medical-500 text-base min-w-[180px]"
+          >
+            <option value="">🏥 Todos los centros</option>
+            <option v-for="c in centers" :key="c" :value="c">{{ c }}</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Counter bar -->
+      <div class="flex items-center justify-between mb-4 px-1">
+        <p class="text-sm text-gray-500">
+          <span v-if="loading" class="inline-flex items-center gap-2">
+            <span class="animate-pulse">⏳</span> Buscando...
+          </span>
+          <span v-else-if="searchQuery.trim() || filterCenter">
+            Mostrando <strong class="text-gray-900">{{ searchResults.length }}</strong> 
+            de <strong class="text-gray-900">{{ resultCount.toLocaleString() }}</strong>
+            <span v-if="resultCount > 50" class="text-gray-400 text-xs ml-1">— refiná tu búsqueda para ver más</span>
+          </span>
+          <span v-else class="text-gray-400">
+            📋 {{ totalCount.toLocaleString() }} personas registradas — usa el buscador
+          </span>
+        </p>
+        <button @click="doSearch" :disabled="loading"
+                class="text-xs text-medical-600 hover:text-medical-700 font-medium disabled:opacity-50">🔄 Actualizar</button>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="loading" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+        <div class="animate-pulse text-5xl mb-4">⏳</div>
+        <p class="text-gray-500 text-sm">Buscando...</p>
+      </div>
+
+      <!-- No results -->
+      <div v-else-if="(searchQuery.trim() || filterCenter) && searchResults.length === 0" 
+           class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+        <div class="text-5xl mb-4">🔍</div>
+        <p class="text-gray-600 font-medium text-lg mb-2">Sin resultados</p>
+        <p class="text-gray-400 text-sm">Intenta con otro nombre, apellido, cédula o centro.</p>
+        <button @click="searchQuery=''; filterCenter=''; doSearch()" 
+                class="mt-4 text-medical-600 font-medium text-sm hover:underline">Limpiar filtros</button>
+      </div>
+
+      <!-- Results -->
+      <div v-else-if="searchResults.length" class="flex flex-col card-gap">
+        <TransitionGroup name="list">
+          <div v-for="p in searchResults" :key="p.id"
+               class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-bold text-gray-900 text-lg uppercase-names">{{ p.nombre }} {{ p.apellido }}</span>
+                  <span v-if="p.edad" class="text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{{ p.edad }} años</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+                  <span v-if="p.cedula">C.I. {{ p.cedula }}</span>
+                  <span>🏥 {{ p.centro }}</span>
+                </div>
+              </div>
+              <span class="text-xs text-gray-400 whitespace-nowrap">{{ formatDate(p.created_at) }}</span>
+            </div>
+          </div>
+        </TransitionGroup>
+      </div>
+
+      <!-- Empty state -->
+      <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+          <svg class="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+        <p class="text-gray-500 font-medium text-lg mb-1">Sin búsqueda activa</p>
+        <p class="text-gray-400 text-sm">
+          <template v-if="totalCount">
+            Hay {{ totalCount.toLocaleString() }} personas registradas.<br>Escribe un nombre, apellido o cédula para buscar.
+          </template>
+          <template v-else>
+            No hay registros aún. Vuelve más tarde.
+          </template>
+        </p>
+      </div>
+
+      <p class="text-center text-xs text-gray-400 mt-8">
+        Si encuentras a tu familiar, por favor ayuda a mantener esta lista actualizada.
+      </p>
+    </main>
+
+    <div v-if="connError" class="fixed bottom-4 left-4 right-4 max-w-lg mx-auto bg-red-600 text-white px-4 py-3 rounded-xl shadow-lg text-sm text-center z-50">
+      ⚠️ Sin conexión. Verifica tu conexión e intenta de nuevo.
+      <button @click="connError=null; doSearch()" class="underline ml-2 font-medium">Reintentar</button>
+    </div>
+  </div>
+
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          // ═══════ CONFIGURACIÓN ═══════
+          supabaseUrl: window.SIVIV_CONFIG?.supabaseUrl || '',
+          supabaseKey: window.SIVIV_CONFIG?.supabaseKey || '',
+          // ══════════════════════════════
+          
+          searchQuery: '',
+          filterCenter: '',
+          searchResults: [],
+          resultCount: 0,
+          totalCount: 0,
+          centers: [],
+          loading: false,
+          connError: null,
+          searchTimer: null,
+          supabase: null,
+        }
+      },
+      
+      computed: {},
+      
+      methods: {
+        initSupabase() {
+          try {
+            this.supabase = supabase.createClient(this.supabaseUrl, this.supabaseKey);
+            this.loadCounts();
+          } catch(e) {
+            this.connError = true;
+          }
+        },
+        
+        async loadCounts() {
+          if (!this.supabase) return;
+          try {
+            // Total registros + lista de centros (paralelo)
+            const [countRes, centersRes] = await Promise.all([
+              this.supabase.from('pacientes').select('*', { count: 'exact', head: true }),
+              this.supabase.from('pacientes').select('centro')
+            ]);
+            
+            if (countRes.error) throw countRes.error;
+            if (centersRes.error) throw centersRes.error;
+            
+            this.totalCount = countRes.count || 0;
+            const c = new Set((centersRes.data || []).map(p => p.centro).filter(Boolean));
+            this.centers = [...c].sort((a, b) => a.localeCompare(b, 'es'));
+          } catch(e) {
+            console.error('loadCounts:', e);
+          }
+        },
+        
+        onSearchInput() {
+          clearTimeout(this.searchTimer);
+          this.searchTimer = setTimeout(() => this.doSearch(), 300);
+        },
+        
+        async doSearch() {
+          if (!this.supabase) return;
+          
+          const q = this.searchQuery.trim();
+          
+          // No criteria → reset to empty state
+          if (!q && !this.filterCenter) {
+            this.searchResults = [];
+            this.resultCount = 0;
+            return;
+          }
+          
+          this.loading = true;
+          this.connError = null;
+          
+          try {
+            let query = this.supabase
+              .from('pacientes')
+              .select('*', { count: 'exact' });
+            
+            if (q) {
+              const pattern = `%${q}%`;
+              query = query.or(
+                `nombre.ilike.${pattern},apellido.ilike.${pattern},cedula.ilike.${pattern}`
+              );
+            }
+            
+            if (this.filterCenter) {
+              query = query.eq('centro', this.filterCenter);
+            }
+            
+            const { data, count, error } = await query
+              .order('created_at', { ascending: false })
+              .limit(50);
+            
+            if (error) throw error;
+            
+            this.searchResults = data || [];
+            this.resultCount = count || 0;
+          } catch(e) {
+            this.connError = true;
+            console.error('doSearch:', e);
+          } finally {
+            this.loading = false;
+          }
+        },
+        
+        formatDate(dateStr) {
+          if (!dateStr) return '';
+          const d = new Date(dateStr);
+          const now = new Date();
+          const diffMin = Math.floor((now - d) / 60000);
+          if (diffMin < 1) return 'Ahora';
+          if (diffMin < 60) return `Hace ${diffMin} min`;
+          const diffHrs = Math.floor(diffMin / 60);
+          if (diffHrs < 24) return `Hace ${diffHrs}h`;
+          return d.toLocaleDateString('es-VE', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+        }
+      },
+      
+      mounted() {
+        this.initSupabase();
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
